@@ -102,8 +102,6 @@ def SmartMeterCycle():
                     hexPower = Data[-8:] # 最後の4バイトが瞬時電力計測値
                     intPower = int(hexPower, 16)
                     Influxdb.WriteDB(dbname='HomeDB', meas="ElectricPower", field='Power', data=float(intPower))
-                    # args = ['sudo', 'curl', '-XPOST', 'http://localhost:8086/write?db=HomeDB', '--data-binary', 'ElectricPower,hard=RasPi4+ Power='+str(intPower)]
-                    # subprocess.call(args)
                     print(u"瞬時電力計測値:{0}[W]".format(intPower))
 
         # 30s毎に取得する
