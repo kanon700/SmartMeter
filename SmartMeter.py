@@ -11,6 +11,8 @@ import Influxdb
 
 
 def SmartMeterCycle():
+
+    f = open('smartmeter.log','w')
     # シリアルポートデバイス名
     #serialPortDev = 'COM5'  # Windows の場合
     serialPortDev = '/dev/ttyUSB0'  # Linuxの場合
@@ -75,40 +77,53 @@ def SmartMeterCycle():
 
     ser.readline() #インスタンスリストダミーリード
 
-    while True:
-        # コマンド送信
-        command = "SKSENDTO 1 {0} 0E1A 1 {1:04X} ".format(Address, len(echonetLiteFrame))
-        ser.write(str.encode(command) + echonetLiteFrame)
+    try:
+        while True:
+            # コマンド送信
+            command = "SKSENDTO 1 {0} 0E1A 1 {1:04X} ".format(Address, len(echonetLiteFrame))
+            ser.write(str.encode(command) + echonetLiteFrame)
 
-        #コマンド受信
-        ser.readline() # エコーバック
-        ser.readline() # EVENT 21
-        ser.readline() # 成功ならOKを返す
+            for i in range(5):
+                Data = ser.readline().decode(encoding='utf-8')
+                if Data.startswith("ERXUDP"):
+                    break
 
-        # 返信データ取得
-        Data = ser.readline().decode(encoding='utf-8')
+            #コマンド受信
+            # ser.readline() # エコーバック
+            # ser.readline() # EVENT 21
+            # ser.readline() # 成功ならOKを返す
 
-        # データチェック
-        if Data.startswith("ERXUDP"):
-            cols = Data.strip().split(' ')
-            res = cols[8]   # UDP受信データ部分
-            seoj = res[8:8+6]
-            ESV = res[20:20+2]
-            # スマートメーター(028801)から来た応答(72)なら
-            if seoj == "028801" and ESV == "72" :
-                EPC = res[24:24 + 2]
-                # 瞬時電力計測値(E7)なら
-                if EPC == "E7" :
-                    hexPower = Data[-8:] # 最後の4バイトが瞬時電力計測値
-                    intPower = int(hexPower, 16)
-                    Influxdb.WriteDB(dbname='HomeDB', meas="ElectricPower", field='Power', data=float(intPower))
-                    print(u"瞬時電力計測値:{0}[W]".format(intPower))
+            # # 返信データ取得
+            # Data = ser.readline().decode(encoding='utf-8')
+            # if('OK' in Data):
+            #     Data = ser.readline().decode(encoding='utf-8')
+            f.writelines(Data)
 
-        # 30s毎に取得する
-        sleep(30)
+            # データチェック
+            if Data.startswith("ERXUDP"):
+                cols = Data.strip().split(' ')
+                res = cols[8]   # UDP受信データ部分
+                seoj = res[8:8+6]
+                ESV = res[20:20+2]
+                # スマートメーター(028801)から来た応答(72)なら
+                if seoj == "028801" and ESV == "72" :
+                    EPC = res[24:24 + 2]
+                    # 瞬時電力計測値(E7)なら
+                    if EPC == "E7" :
+                        hexPower = Data[-8:] # 最後の4バイトが瞬時電力計測値
+                        intPower = int(hexPower, 16)
+                        Influxdb.WriteDB(dbname='HomeDB', meas="ElectricPower", field='Power', data=float(intPower))
+                        print(u"瞬時電力計測値:{0}[W]".format(intPower))
 
-    # ガード処理
-    ser.close()
+            # 10s毎に取得する
+            sleep(10)
+
+        # ガード処理
+        ser.close()
+
+    except KeyboardInterrupt:
+        f.close()
+
 
 if __name__ == '__main__':
     SmartMeterCycle()

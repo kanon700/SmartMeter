@@ -39,7 +39,7 @@ while ('Channel' not in scanRes):
     scanEnd = False
     while not scanEnd :
         line = ser.readline().decode(encoding='utf-8')
-        # print(line)
+        print(line)
         if line.startswith("EVENT 22") :
             # スキャン終了
             scanEnd = True
